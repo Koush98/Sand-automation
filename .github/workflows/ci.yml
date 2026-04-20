@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate Python syntax
+        run: python -m compileall -q .
+
+      - name: Import smoke test
+        run: |
+          python - <<'PY'
+          import main
+          import sand_app
+          import session_service.api
+          import session_service.browser_manager
+          import session_service.store
+          import crm_service.api
+          import crm_service.manager
+          print("Import smoke test passed.")
+          PY

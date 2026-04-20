@@ -1,0 +1,47 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build deployment bundle
+        run: |
+          mkdir -p dist
+          tar -czf dist/sand-automation.tar.gz \
+            .github \
+            crm_service \
+            session_service \
+            main.py \
+            sand.py \
+            sand_app.py \
+            sand_debug.py \
+            gh.py \
+            requirements.txt \
+            dist_ps_map.json \
+            CRM_INTEGRATION.md \
+            SESSION_API.md
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sand-automation-bundle
+          path: dist/sand-automation.tar.gz
