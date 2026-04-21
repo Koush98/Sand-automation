@@ -28,7 +28,6 @@ jobs:
           mkdir -p dist
           tar -czf dist/sand-automation.tar.gz \
             .github \
-            crm_service \
             session_service \
             main.py \
             sand.py \
@@ -37,8 +36,10 @@ jobs:
             gh.py \
             requirements.txt \
             dist_ps_map.json \
-            CRM_INTEGRATION.md \
-            SESSION_API.md
+            README.md \
+            SESSION_API.md \
+            RENDER_DEPLOY.md \
+            render.yaml
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

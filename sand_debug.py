@@ -35,6 +35,8 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+GENERATE_PASS_SELECTOR = "#ctl00_ContentPlaceHolder1_btn_Proceed"
+LOGOUT_SELECTOR = "a[href='../Page/WBMD_Logout.aspx']"
 
 # ================= LOAD JSON =================
 with open("dist_ps_map.json", "r", encoding="utf-8") as f:
@@ -205,6 +207,19 @@ def handle_popups(page):
             break
 
 
+def logout_portal(page):
+    try:
+        logout_link = wait_for_visible(page, LOGOUT_SELECTOR, "Logout link", timeout=15000)
+        logout_link.click()
+        page.wait_for_load_state("networkidle")
+        handle_popups(page)
+        logger.info("Logged out successfully")
+        return True
+    except Exception as exc:
+        logger.warning(f"Logout failed: {exc}")
+        return False
+
+
 def log_available_rows(page):
     qty_count = page.locator("[id$='txt_pass_qty']").count()
     checkbox_count = page.locator("[id$='chkselect']").count()
@@ -326,11 +341,16 @@ def run():
         print("Draft created")
         wait_for_enter("Verify manually -> Press ENTER")
 
-        page.get_by_role("button", name="Proceed To Generate Pass").click()
+        safe_click(page, GENERATE_PASS_SELECTOR, "Proceed To Generate Pass", timeout=15000)
+        page.wait_for_load_state("networkidle")
+        handle_popups(page)
         logger.info("Pass generated")
 
+        if not logout_portal(page):
+            raise RuntimeError("Logout did not complete, so the browser should not be closed.")
+
         print("DONE")
-        wait_for_enter("Press ENTER to close browser...")
+        wait_for_enter("Logged out successfully -> Press ENTER to close browser...")
 
     except NoRecordsFoundError as exc:
         logger.warning(str(exc))
@@ -374,4 +394,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-

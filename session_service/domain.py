@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import Optional
 
 
 class SessionStatus(str, Enum):
@@ -14,21 +15,21 @@ class SessionStatus(str, Enum):
     error = "error"
 
 
-@dataclass(slots=True)
+@dataclass
 class PortalSessionRecord:
     account_id: str
     phone: str
     profile_dir: str
     status: SessionStatus
     portal_state: str
-    cooldown_until: str | None
+    cooldown_until: Optional[str]
     last_seen_at: str
-    last_error: str | None
-    active_operation: str | None
-    browser_pid: int | None
+    last_error: Optional[str]
+    active_operation: Optional[str]
+    browser_pid: Optional[int]
 
 
-@dataclass(slots=True)
+@dataclass
 class SessionOpenResult:
     record: PortalSessionRecord
     reused_existing: bool

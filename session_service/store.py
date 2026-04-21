@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from session_service.domain import PortalSessionRecord, SessionStatus
 
@@ -40,7 +41,7 @@ class SessionStore:
             )
             connection.commit()
 
-    def get(self, account_id: str) -> PortalSessionRecord | None:
+    def get(self, account_id: str) -> Optional[PortalSessionRecord]:
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT * FROM portal_sessions WHERE account_id = ?",

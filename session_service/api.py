@@ -7,7 +7,10 @@ from session_service.browser_manager import BrowserSessionManager
 from session_service.domain import SessionStatus
 from session_service.schemas import (
     ChallanEligibilityResponse,
+    DraftChallanRequest,
+    DraftChallanResponse,
     LoginCheckResponse,
+    SessionCloseResponse,
     SessionOpenRequest,
     SessionOpenResponse,
     SessionResponse,
@@ -64,7 +67,7 @@ async def open_session(
     request: Request,
 ) -> SessionOpenResponse:
     manager = get_manager(request)
-    result = await manager.open_session(payload.account_id, payload.phone)
+    result = await manager.open_session(payload.account_id, payload.phone, payload.secret)
     return SessionOpenResponse(
         session=to_response(result.record),
         reused_existing=result.reused_existing,
@@ -128,3 +131,53 @@ async def challan_eligibility(account_id: str, request: Request) -> ChallanEligi
             eligible=False,
             reason=str(exc),
         )
+
+
+@app.post(
+    f"{settings.api_prefix}/sessions/{{account_id}}/close",
+    response_model=SessionCloseResponse,
+    dependencies=[Depends(require_service_token)],
+)
+async def close_session(account_id: str, request: Request) -> SessionCloseResponse:
+    manager = get_manager(request)
+    record = await manager.close_session(account_id, expected=True)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    logged_out = record.portal_state == "logged_out"
+    return SessionCloseResponse(
+        session=to_response(record),
+        logged_out=logged_out,
+        closed=logged_out,
+        message=(
+            "Logged out successfully and closed the browser."
+            if logged_out
+            else "Logout failed, so the browser was intentionally left open."
+        ),
+    )
+
+
+@app.post(
+    f"{settings.api_prefix}/sessions/{{account_id}}/draft-challan",
+    response_model=DraftChallanResponse,
+    dependencies=[Depends(require_service_token)],
+)
+async def draft_challan(
+    account_id: str,
+    payload: DraftChallanRequest,
+    request: Request,
+) -> DraftChallanResponse:
+    manager = get_manager(request)
+    try:
+        record = await manager.create_draft_challan(account_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return DraftChallanResponse(
+        session=to_response(record),
+        success=record.portal_state == "logged_out",
+        message=(
+            "Draft challan generated, pass proceeded, and session logged out safely."
+            if record.portal_state == "logged_out"
+            else "Draft challan flow finished, but logout/close did not complete safely."
+        ),
+    )

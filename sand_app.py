@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 from playwright.sync_api import Locator, Page, Playwright, sync_playwright
@@ -14,6 +15,8 @@ DISTRICT_SELECTOR = "#ctl00_ContentPlaceHolder1_ddl_Purchaser_District"
 PS_SELECTOR = "#ctl00_ContentPlaceHolder1_ddl_PS"
 VEHICLE_SELECTOR = "#ctl00_ContentPlaceHolder1_txtVehicleRegNo"
 RATE_SELECTOR = "#ctl00_ContentPlaceHolder1_txt_sand_rate"
+GENERATE_PASS_SELECTOR = "#ctl00_ContentPlaceHolder1_btn_Proceed"
+LOGOUT_SELECTOR = "a[href='../Page/WBMD_Logout.aspx']"
 LOG_DIR = Path("logs")
 MAP_FILE = Path("dist_ps_map.json")
 
@@ -42,14 +45,17 @@ class NoRecordsFoundError(PortalAutomationError):
 def setup_logging() -> logging.Logger:
     LOG_DIR.mkdir(exist_ok=True)
     log_file = LOG_DIR / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    handlers = [logging.StreamHandler()]
+
+    try:
+        handlers.insert(0, logging.FileHandler(log_file, encoding="utf-8"))
+    except OSError:
+        pass
 
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(levelname)s | %(message)s",
-        handlers=[
-            logging.FileHandler(log_file, encoding="utf-8"),
-            logging.StreamHandler(),
-        ],
+        handlers=handlers,
         force=True,
     )
     return logging.getLogger(__name__)
@@ -215,6 +221,19 @@ def handle_popups(page: Page) -> None:
             return
 
 
+def logout_portal(page: Page) -> bool:
+    try:
+        logout_link = wait_for_visible(page, LOGOUT_SELECTOR, "Logout link", timeout=15000)
+        logout_link.click()
+        page.wait_for_load_state("networkidle")
+        handle_popups(page)
+        logger.info("Logged out successfully")
+        return True
+    except Exception as exc:
+        logger.warning("Logout failed: %s", exc)
+        return False
+
+
 def log_available_rows(page: Page) -> None:
     qty_count = page.locator("[id$='txt_pass_qty']").count()
     checkbox_count = page.locator("[id$='chkselect']").count()
@@ -326,10 +345,16 @@ def save_and_generate(page: Page) -> None:
     print("Draft created")
     wait_for_enter("Verify manually -> Press ENTER")
 
-    page.get_by_role("button", name="Proceed To Generate Pass").click()
+    safe_click(page, GENERATE_PASS_SELECTOR, "Proceed To Generate Pass", timeout=15000)
+    page.wait_for_load_state("networkidle")
+    handle_popups(page)
     logger.info("Pass generated")
+
+    if not logout_portal(page):
+        raise PortalAutomationError("Logout did not complete, so the browser should not be closed.")
+
     print("DONE")
-    wait_for_enter("Press ENTER to close browser...")
+    wait_for_enter("Logged out successfully -> Press ENTER to close browser...")
 
 
 def run_portal_job(playwright: Playwright, config: Config, mapping: dict) -> None:
@@ -405,7 +430,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-def run(config: Config, mapping: dict | None = None) -> None:
+def run(config: Config, mapping: Optional[dict] = None) -> None:
     resolved_mapping = mapping or load_mapping()
     with sync_playwright() as playwright:
         run_portal_job(playwright, config, resolved_mapping)

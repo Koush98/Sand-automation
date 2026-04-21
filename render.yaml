@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: sand-automation-backend
+    runtime: python
+    plan: starter
+    buildCommand: |
+      pip install -r requirements.txt
+      python -m playwright install chromium
+    startCommand: python main.py
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: SESSION_SERVICE_TOKEN
+        sync: false
+      - key: SESSION_HEADLESS
+        value: "true"
+      - key: SESSION_STATE_DIR
+        value: /opt/render/project/src/runtime
+      - key: SESSION_PROFILES_DIR
+        value: /opt/render/project/src/runtime/profiles
+      - key: SESSION_SQLITE_PATH
+        value: /opt/render/project/src/runtime/session_state.db

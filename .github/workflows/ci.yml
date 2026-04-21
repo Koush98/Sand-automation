@@ -39,7 +39,5 @@ jobs:
           import session_service.api
           import session_service.browser_manager
           import session_service.store
-          import crm_service.api
-          import crm_service.manager
           print("Import smoke test passed.")
           PY
